@@ -1,14 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const errorHandler = require('./middleware/errorHandler');
-
-// Load env vars
-dotenv.config();
-
-// Connect to database
-connectDB();
+const mongoose = require('mongoose');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
 
@@ -17,15 +11,45 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/designs', require('./routes/designs'));
-app.use('/api/design-requests', require('./routes/designRequests'));
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Error Handler (Should be last piece of middleware)
-app.use(errorHandler);
+// Import routes
+const authRoutes = require('./routes/auth');
+const designRequestRoutes = require('./routes/designRequests');
+const designRoutes = require('./routes/designs');
 
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/design-requests', designRequestRoutes);
+app.use('/api/designs', designRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Something went wrong!',
+    error: err.message
+  });
+});
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Could not connect to MongoDB:', err));
+
+// Create uploads directory if it doesn't exist
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+  console.log(`Server is running on port ${PORT}`);
+});
+
+module.exports = app; 

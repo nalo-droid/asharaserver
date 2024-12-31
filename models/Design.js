@@ -3,40 +3,38 @@ const mongoose = require('mongoose');
 const designSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, 'Please add a design name'],
+    trim: true
   },
   category: {
     type: String,
-    required: true,
-    enum: ['Residential', 'Commercial', 'Industrial']
+    required: [true, 'Please specify a category'],
+    enum: ['residential', 'commercial', 'industrial']
   },
   area: {
-    type: Number,
-    required: true
+    type: String,
+    required: [true, 'Please specify the area']
   },
   description: {
     type: String,
-    required: true
+    required: [true, 'Please add a description']
   },
-  features: [{
-    type: String
-  }],
+  features: {
+    type: String,
+    required: [true, 'Please add features']
+  },
   images: [{
     type: String,
-    required: true
+    required: [true, 'Please add at least one image']
   }],
   status: {
     type: String,
-    enum: ['draft', 'published', 'archived'],
+    enum: ['draft', 'published'],
     default: 'draft'
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
-  },
-  price: {
-    type: Number,
     required: true
   }
 }, {

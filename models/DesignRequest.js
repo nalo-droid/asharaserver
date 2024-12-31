@@ -1,41 +1,49 @@
 const mongoose = require('mongoose');
 
 const designRequestSchema = new mongoose.Schema({
-  client: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  design: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Design',
-    required: true
-  },
-  projectType: {
+  fullName: {
     type: String,
     required: true
   },
-  location: {
+  contactNumber: {
     type: String,
     required: true
   },
-  budget: {
-    type: Number,
+  designType: {
+    type: String,
+    required: true,
+    enum: ['residential', 'commercial', 'industrial']
+  },
+  plotArea: {
+    type: String,
     required: true
   },
-  timeline: String,
-  requirements: String,
-  boqNeeded: {
-    type: Boolean,
-    default: false
+  description: String,
+  titleDeedPath: {
+    type: String,
+    required: true
   },
+  sketchPath: String,
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'in-progress', 'completed'],
+    enum: ['pending', 'in-progress', 'completed', 'rejected'],
     default: 'pending'
   },
-  attachments: [{
-    type: String
+  comments: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    text: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }]
 }, {
   timestamps: true
