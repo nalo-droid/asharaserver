@@ -39,9 +39,12 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // Increased to 10MB
+    fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-});
+}).fields([
+  { name: 'titleDeed', maxCount: 1 },
+  { name: 'sketch', maxCount: 1 }
+]);
 
 // Error handling middleware for multer
 const handleMulterError = (err, req, res, next) => {
@@ -59,77 +62,88 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 // Client routes
-router.post('/', protect, 
-  (req, res, next) => {
-    upload.fields([
-      { name: 'titleDeed', maxCount: 1 },
-      { name: 'sketch', maxCount: 1 }
-    ])(req, res, (err) => {
+router.use((req, res, next) => {
+  console.log('Incoming request:', {
+    method: req.method,
+    path: req.path,
+    body: req.body,
+    files: req.files,
+    headers: {
+      contentType: req.headers['content-type'],
+      authorization: req.headers.authorization ? 'Present' : 'Missing'
+    }
+  });
+  next();
+});
+
+router.post('/', protect, async (req, res) => {
+  console.log('Processing design request submission');
+  
+  try {
+    upload(req, res, async function(err) {
       if (err) {
-        handleMulterError(err, req, res, next);
-      } else {
-        next();
-      }
-    });
-  },
-  async (req, res) => {
-    try {
-      const { 
-        fullName, 
-        contactNumber, 
-        designType, 
-        plotArea, 
-        description 
-      } = req.body;
-      
-      if (!req.files?.titleDeed) {
-        return res.status(400).json({ message: 'Title deed file is required' });
+        console.error('Upload error:', err);
+        return res.status(400).json({ message: err.message });
       }
 
-      const designRequest = await DesignRequest.create({
-        userId: req.user._id,
-        fullName,
-        contactNumber,
-        designType,
+      console.log('Files uploaded successfully:', req.files);
+      console.log('Form data received:', req.body);
+
+      const {
         plotArea,
+        designType,
         description,
-        titleDeedPath: req.files.titleDeed[0].path,
-        sketchPath: req.files.sketch ? req.files.sketch[0].path : null
+        fullName,
+        contactNumber
+      } = req.body;
+
+      const sketchPath = req.files?.sketch?.[0]?.path;
+      const titleDeedPath = req.files?.titleDeed?.[0]?.path;
+
+      if (!titleDeedPath) {
+        console.error('Title deed missing');
+        return res.status(400).json({ message: 'Title deed document is required' });
+      }
+
+      const designRequest = new DesignRequest({
+        userId: req.user.id,
+        plotArea,
+        designType,
+        description,
+        sketchPath,
+        titleDeedPath,
+        fullName,
+        contactNumber
       });
+
+      console.log('Creating design request:', designRequest);
+      await designRequest.save();
+      console.log('Design request saved successfully');
 
       res.status(201).json({
-        message: 'Design request created successfully',
+        success: true,
+        message: 'Design request submitted successfully',
         data: designRequest
       });
-    } catch (error) {
-      console.error('Error creating design request:', error);
-      res.status(500).json({ 
-        message: error.message || 'Error creating design request',
-        details: error.errors ? Object.keys(error.errors).map(key => ({
-          field: key,
-          message: error.errors[key].message
-        })) : null
-      });
-    }
+    });
+  } catch (error) {
+    console.error('Route error:', error);
+    res.status(500).json({ message: 'Server error processing request' });
   }
-);
+});
 
 // Get user's own design requests
 router.get('/my-requests', protect, async (req, res) => {
   try {
-    const requests = await DesignRequest.find({ userId: req.user._id })
+    console.log('Fetching requests for user:', req.user.id);
+    const requests = await DesignRequest.find({ userId: req.user.id })
       .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      data: requests
-    });
+    
+    console.log('Found requests:', requests);
+    res.json(requests);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching your requests',
-      error: error.message
-    });
+    console.error('Error in /my-requests:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -192,25 +206,19 @@ router.post('/:id/comments', protect, async (req, res) => {
   }
 });
 
-// Admin routes for fetching design requests
+// Admin route for fetching all requests
 router.get('/admin/requests', protect, isAdmin, async (req, res) => {
   try {
-    // Fetch all design requests with user information
+    console.log('Fetching all requests for admin');
     const requests = await DesignRequest.find({})
       .populate('userId', 'name email')
       .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      data: requests
-    });
+    
+    console.log('Found requests:', requests);
+    res.json(requests);
   } catch (error) {
-    console.error('Error fetching design requests:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching design requests',
-      error: error.message
-    });
+    console.error('Error in /admin/requests:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 
