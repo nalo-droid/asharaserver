@@ -6,8 +6,17 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Updated CORS configuration
+app.use(cors({
+  origin: [
+    'https://asharaclient.vercel.app',
+    //'http://localhost:5173', // For local development
+    //'http://localhost:3000'  // Alternative local port
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
