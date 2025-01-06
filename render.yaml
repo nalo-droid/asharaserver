@@ -3,7 +3,11 @@ services:
     name: architectural-design-backend
     env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -12,4 +16,12 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: REFRESH_TOKEN_SECRET
-        sync: false 
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: MAX_FILE_SIZE
+        value: "5242880"
+    headers:
+      - path: /uploads/*
+        name: Cache-Control
+        value: public, max-age=86400 

@@ -6,16 +6,30 @@ const fs = require('fs').promises;
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/design-requests');
+    const uploadPath = path.join(__dirname, '../uploads/design-requests');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      cb(new Error('Invalid file type'));
+      return;
+    }
+    cb(null, true);
+  }
 });
 
 const uploadFields = upload.fields([
@@ -28,37 +42,29 @@ const designRequestController = {
 
   createDesignRequest: async (req, res) => {
     try {
-      const {
-        plotArea,
-        designType,
-        description,
-        fullName,
-        contactNumber
-      } = req.body;
-
-      const sketchPath = req.files?.sketch?.[0]?.path;
-      const titleDeedPath = req.files?.titleDeed?.[0]?.path;
-
-      if (!titleDeedPath) {
-        throw new Error('Title deed document is required');
-      }
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT}`;
+      
+      const sketchPath = req.files?.sketch?.[0] ? 
+        `${baseUrl}/uploads/design-requests/${path.basename(req.files.sketch[0].path)}` : null;
+      
+      const titleDeedPath = req.files?.titleDeed?.[0] ?
+        `${baseUrl}/uploads/design-requests/${path.basename(req.files.titleDeed[0].path)}` : null;
 
       const designRequest = new DesignRequest({
         userId: req.user.id,
-        plotArea,
-        designType,
-        description,
+        plotArea: req.body.plotArea,
+        designType: req.body.designType,
+        description: req.body.description,
         sketchPath,
         titleDeedPath,
-        fullName,
-        contactNumber
+        fullName: req.body.fullName,
+        contactNumber: req.body.contactNumber
       });
 
       await designRequest.save();
 
       res.status(201).json({
         success: true,
-        message: 'Design request submitted successfully',
         data: designRequest
       });
     } catch (error) {

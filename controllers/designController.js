@@ -1,14 +1,21 @@
 const Design = require('../models/Design');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
-// Configure multer for image upload
+// Configure multer for design catalog images
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/designs');
+    const uploadPath = path.join(__dirname, '../uploads/designs');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    cb(null, `design-${Date.now()}${path.extname(file.originalname)}`);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `design-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
 
@@ -17,7 +24,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: function (req, file, cb) {
     if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
-      return cb(new Error('Please upload an image file'));
+      return cb(new Error('Please upload an image file (jpg, jpeg, png)'), false);
     }
     cb(null, true);
   }
@@ -34,7 +41,9 @@ const createDesign = async (req, res) => {
         });
       }
 
-      const images = req.files.map(file => file.path);
+      const images = req.files.map(file => 
+        `/uploads/designs/${path.basename(file.path)}`
+      );
       
       const design = await Design.create({
         ...req.body,
@@ -114,7 +123,7 @@ const getDesign = async (req, res) => {
   }
 };
 
-// Update design
+// Update design with new images
 const updateDesign = async (req, res) => {
   try {
     upload(req, res, async function (err) {
@@ -128,7 +137,10 @@ const updateDesign = async (req, res) => {
       let updateData = { ...req.body };
       
       if (req.files?.length > 0) {
-        updateData.images = req.files.map(file => file.path);
+        const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT}`;
+        updateData.images = req.files.map(file => 
+          `${baseUrl}/uploads/designs/${path.basename(file.path)}`
+        );
       }
 
       const design = await Design.findByIdAndUpdate(

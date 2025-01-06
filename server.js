@@ -41,9 +41,9 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Create uploads directory if it doesn't exist
 const fs = require('fs');
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Start server
